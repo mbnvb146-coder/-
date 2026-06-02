@@ -1,7 +1,11 @@
-"""Resolve a working ffmpeg binary. Prefers system ffmpeg (Docker), falls back to imageio-ffmpeg."""
+"""Resolve a working ffmpeg binary — lazy initialization (no subprocess at import time)."""
 import shutil
 import subprocess
 import pathlib
+from typing import Optional
+
+_FFMPEG: Optional[str] = None
+_FFPROBE: Optional[str] = None
 
 
 def _check(path: str) -> bool:
@@ -12,28 +16,33 @@ def _check(path: str) -> bool:
         return False
 
 
-def _get() -> str:
-    # 1. System ffmpeg (installed via apt in Docker)
+def _resolve() -> str:
+    # 1. System ffmpeg (apt install ffmpeg in Docker)
     p = shutil.which("ffmpeg")
     if p and _check(p):
         return p
-
-    # 2. imageio-ffmpeg bundled static binary (local dev fallback)
+    # 2. imageio-ffmpeg static binary (local dev)
     try:
         import imageio_ffmpeg
         p = imageio_ffmpeg.get_ffmpeg_exe()
-        if _check(p):
+        if p and _check(p):
             return p
     except ImportError:
         pass
-
-    raise RuntimeError(
-        "ffmpeg not found. Install with: apt install ffmpeg  or  pip install imageio-ffmpeg"
-    )
+    raise RuntimeError("ffmpeg not found. Run: apt install ffmpeg")
 
 
-FFMPEG = _get()
+def get_ffmpeg() -> str:
+    global _FFMPEG
+    if _FFMPEG is None:
+        _FFMPEG = _resolve()
+    return _FFMPEG
 
-# ffprobe: look next to ffmpeg binary
-_sibling = pathlib.Path(FFMPEG).parent / "ffprobe"
-FFPROBE = str(_sibling) if (_sibling.exists() and _check(str(_sibling))) else FFMPEG
+
+def get_ffprobe() -> str:
+    global _FFPROBE
+    if _FFPROBE is None:
+        ff = get_ffmpeg()
+        sibling = pathlib.Path(ff).parent / "ffprobe"
+        _FFPROBE = str(sibling) if (sibling.exists() and _check(str(sibling))) else ff
+    return _FFPROBE
