@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CapCut Agent</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--card:#161616;--border:#262626;--muted:#525252;
+  --fg:#fafafa;--fg2:#a3a3a3;--green:#22c55e;--green-dim:#16a34a;
+  --red:#ef4444;--yellow:#eab308;--font:'SF Mono','Fira Mono','Consolas',monospace;
+}
+html,body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:13px;min-height:100vh}
+a{color:var(--green);text-decoration:none}
+
+/* ── Layout ─────────────────────────────────── */
+.wrap{max-width:780px;margin:0 auto;padding:48px 24px}
+header{margin-bottom:40px}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.logo-dot{width:10px;height:10px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green),0 0 20px #22c55e55}
+.logo-text{font-size:17px;font-weight:700;letter-spacing:-0.5px}
+.logo-sub{font-size:11px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase}
+hr.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+
+/* ── Cards ──────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px}
+.card+.card{margin-top:12px}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:14px}
+
+/* ── Drop zone ──────────────────────────────── */
+#drop{
+  border:1.5px dashed var(--border);border-radius:8px;padding:40px 24px;
+  text-align:center;cursor:pointer;transition:border-color .2s,background .2s;
+  position:relative
+}
+#drop.drag{border-color:var(--green);background:#22c55e08}
+#drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:28px;margin-bottom:10px;opacity:.5}
+.drop-label{color:var(--fg2);line-height:1.6}
+.drop-label strong{color:var(--fg)}
+.drop-label .ext{display:inline-block;background:#1c1c1c;border:1px solid var(--border);
+  border-radius:4px;padding:1px 6px;font-size:10px;margin:0 2px;color:var(--green)}
+
+/* ── File info chip ─────────────────────────── */
+.file-chip{display:none;align-items:center;gap:10px;background:#1a1a1a;
+  border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-top:12px}
+.file-chip.show{display:flex}
+.chip-name{font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip-size{color:var(--muted);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip-rm{cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px 4px}
+.chip-rm:hover{color:var(--red)}
+
+/* ── Controls ───────────────────────────────── */
+.controls{display:flex;gap:10px;align-items:center;margin-top:16px}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:none;border-radius:6px;cursor:pointer;font-family:var(--font);
+  font-size:12px;font-weight:600;padding:9px 18px;transition:all .15s;white-space:nowrap
+}
+.btn-primary{background:var(--green);color:#000}
+.btn-primary:hover{background:#16a34a}
+.btn-primary:disabled{background:#1a3d2b;color:#4a7a5e;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--fg2);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--fg);border-color:var(--muted)}
+select.model{
+  background:var(--card);border:1px solid var(--border);border-radius:6px;
+  color:var(--fg2);font-family:var(--font);font-size:12px;padding:8px 10px;cursor:pointer
+}
+select.model:focus{outline:1px solid var(--green)}
+
+/* ── Stepper ────────────────────────────────── */
+#stepper{display:none}
+#stepper.show{display:block}
+.step-list{display:flex;flex-direction:column;gap:4px}
+.step-item{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;
+  border-radius:6px;border:1px solid transparent;transition:all .25s
+}
+.step-item.waiting{opacity:.35}
+.step-item.running{border-color:var(--border);background:#111;animation:pulse 2s infinite}
+.step-item.done{border-color:#1a3d2b;background:#0d1f15}
+.step-item.error{border-color:#3d1a1a;background:#1f0d0d}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+
+.step-dot{width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0}
+.step-item.running .step-dot{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.step-item.done .step-dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+.step-item.error .step-dot{background:var(--red);box-shadow:0 0 6px var(--red)}
+
+.step-label{font-size:12px;font-weight:600;min-width:80px}
+.step-msg{color:var(--fg2);font-size:11px;flex:1}
+.step-detail{color:var(--muted);font-size:10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--yellow);
+  border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Stats grid ─────────────────────────────── */
+#stats{display:none}
+#stats.show{display:block}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat-cell{background:#111;border:1px solid var(--border);border-radius:6px;padding:14px}
+.stat-val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--green);line-height:1;margin-bottom:4px}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+
+/* ── Draft path ─────────────────────────────── */
+.draft-box{background:#0d1f15;border:1px solid #1a3d2b;border-radius:6px;
+  padding:14px 16px;margin-top:12px}
+.draft-box .label{font-size:10px;color:var(--green);text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:6px}
+.draft-box .path{font-size:11px;color:var(--fg);word-break:break-all;line-height:1.6}
+.draft-box .hint{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.6}
+
+/* ── Transcript ─────────────────────────────── */
+#transcript-wrap{display:none}
+#transcript-wrap.show{display:block}
+.tx-scroll{max-height:280px;overflow-y:auto;margin-top:10px}
+.tx-scroll::-webkit-scrollbar{width:4px}
+.tx-scroll::-webkit-scrollbar-track{background:transparent}
+.tx-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.tx-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #1a1a1a;align-items:baseline}
+.tx-row:last-child{border-bottom:none}
+.tx-time{font-size:10px;color:var(--muted);min-width:90px;font-variant-numeric:tabular-nums;flex-shrink:0}
+.tx-text{font-size:12px;color:var(--fg2);line-height:1.5}
+.tx-row.filler .tx-text{color:var(--muted);text-decoration:line-through}
+.tx-row.ng .tx-text{color:var(--red);opacity:.7;text-decoration:line-through}
+.tag{display:inline-block;font-size:9px;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+.tag.filler{background:#292900;color:var(--yellow);border:1px solid #3d3800}
+.tag.ng{background:#290000;color:var(--red);border:1px solid #3d0000}
+
+/* ── Error box ──────────────────────────────── */
+#error-box{display:none;background:#1f0d0d;border:1px solid #3d1a1a;border-radius:6px;
+  padding:14px;color:var(--red);font-size:11px;line-height:1.7;margin-top:12px}
+#error-box.show{display:block}
+#error-box pre{white-space:pre-wrap;word-break:break-word;margin-top:8px;
+  font-size:10px;color:#a87070;max-height:200px;overflow-y:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <span class="logo-dot"></span>
+      <span class="logo-text">CapCut Agent</span>
+    </div>
+    <div class="logo-sub">자동 컷편집 · 자막 생성 → CapCut 드래프트</div>
+  </header>
+
+  <!-- Upload card -->
+  <div class="card">
+    <div class="card-title">영상 업로드</div>
+    <div id="drop">
+      <input type="file" id="fileInput" accept=".mp4,.mov,.avi,.mkv" />
+      <div class="drop-icon">⬆</div>
+      <div class="drop-label">
+        <strong>드래그 & 드롭</strong> 또는 클릭하여 선택<br>
+        <span class="ext">MP4</span><span class="ext">MOV</span><span class="ext">AVI</span>
+      </div>
+    </div>
+    <div class="file-chip" id="fileChip">
+      <span style="font-size:18px">🎬</span>
+      <span class="chip-name" id="chipName"></span>
+      <span class="chip-size" id="chipSize"></span>
+      <span class="chip-rm" id="chipRm">✕</span>
+    </div>
+    <div class="controls">
+      <select class="model" id="modelSel" title="Whisper 모델">
+        <option value="tiny">Whisper tiny (빠름)</option>
+        <option value="base" selected>Whisper base</option>
+        <option value="small">Whisper small (정확)</option>
+        <option value="medium">Whisper medium (최고)</option>
+      </select>
+      <button class="btn btn-primary" id="runBtn" disabled>▶ 편집 시작</button>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Stepper -->
+  <div id="stepper">
+    <div class="card">
+      <div class="card-title">파이프라인</div>
+      <div class="step-list" id="stepList">
+        <!-- injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div id="stats">
+    <hr class="divider" />
+    <div class="card">
+      <div class="card-title">편집 결과</div>
+      <div class="stat-grid">
+        <div class="stat-cell">
+          <div class="stat-val" id="sTotal">—</div>
+          <div class="stat-lbl">원본 길이</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="sEdited">—</div>
+          <div class="stat-lbl">편집 후 길이</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="sRatio">—</div>
+          <div class="stat-lbl">제거 비율</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="sSilences">—</div>
+          <div class="stat-lbl">무음 구간</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="sFillers">—</div>
+          <div class="stat-lbl">잔말·NG</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="sSegments">—</div>
+          <div class="stat-lbl">자막 세그먼트</div>
+        </div>
+      </div>
+
+      <div class="draft-box">
+        <div class="label">✓ CapCut 드래프트 완성</div>
+        <a class="btn btn-primary" id="dlBtn" href="#" download style="margin-bottom:12px;display:inline-flex">
+          ⬇ ZIP 다운로드
+        </a>
+        <div class="hint">
+          다운로드한 ZIP을 압축 해제 후 폴더째로 복사하세요.<br>
+          <strong>iPad/iPhone:</strong> Files 앱 &gt; CapCut &gt; Projects/ 폴더에 붙여넣기<br>
+          <strong>Android:</strong> <code>/sdcard/DCIM/CapCut/Projects/</code><br>
+          그 후 CapCut 앱 재시작 → 프로젝트 목록에 나타납니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transcript -->
+  <div id="transcript-wrap">
+    <hr class="divider" />
+    <div class="card">
+      <div class="card-title">대본 / 자막 <span id="txCount" style="color:var(--muted)"></span></div>
+      <div class="tx-scroll" id="txScroll"></div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box">
+    <strong>오류 발생</strong>
+    <pre id="errorPre"></pre>
+  </div>
+
+</div>
+
+<script>
+const STEPS = [
+  { key: "silence", label: "Silence",  icon: "🔇" },
+  { key: "asr",     label: "ASR",      icon: "📝" },
+  { key: "filler",  label: "Filler/NG",icon: "✂️" },
+  { key: "draft",   label: "Draft",    icon: "📁" },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let selectedFile = null;
+let jobId = null;
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const drop       = document.getElementById("drop");
+const fileInput  = document.getElementById("fileInput");
+const fileChip   = document.getElementById("fileChip");
+const chipName   = document.getElementById("chipName");
+const chipSize   = document.getElementById("chipSize");
+const chipRm     = document.getElementById("chipRm");
+const runBtn     = document.getElementById("runBtn");
+const modelSel   = document.getElementById("modelSel");
+const stepper    = document.getElementById("stepper");
+const stepList   = document.getElementById("stepList");
+const statsEl    = document.getElementById("stats");
+const txWrap     = document.getElementById("transcript-wrap");
+const txScroll   = document.getElementById("txScroll");
+const txCount    = document.getElementById("txCount");
+const errorBox   = document.getElementById("error-box");
+const errorPre   = document.getElementById("errorPre");
+
+// ── Upload drag-drop ───────────────────────────────────────────────────────
+drop.addEventListener("dragover",  e => { e.preventDefault(); drop.classList.add("drag") });
+drop.addEventListener("dragleave", ()  => drop.classList.remove("drag"));
+drop.addEventListener("drop", e => {
+  e.preventDefault(); drop.classList.remove("drag");
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) setFile(fileInput.files[0]) });
+chipRm.addEventListener("click", e => { e.stopPropagation(); clearFile() });
+
+function setFile(f) {
+  selectedFile = f;
+  chipName.textContent = f.name;
+  chipSize.textContent = fmtSize(f.size);
+  fileChip.classList.add("show");
+  runBtn.disabled = false;
+}
+function clearFile() {
+  selectedFile = null;
+  fileInput.value = "";
+  fileChip.classList.remove("show");
+  runBtn.disabled = true;
+}
+function fmtSize(b) {
+  if (b > 1e9) return (b/1e9).toFixed(1)+" GB";
+  if (b > 1e6) return (b/1e6).toFixed(1)+" MB";
+  return (b/1e3).toFixed(0)+" KB";
+}
+function fmtSec(s) { return s >= 60 ? `${Math.floor(s/60)}m ${(s%60).toFixed(1)}s` : `${s.toFixed(1)}s` }
+
+// ── Init stepper ───────────────────────────────────────────────────────────
+function initStepper() {
+  stepList.innerHTML = "";
+  STEPS.forEach(st => {
+    const div = document.createElement("div");
+    div.className = "step-item waiting";
+    div.id = "si-" + st.key;
+    div.innerHTML = `
+      <span class="step-dot"></span>
+      <span class="step-label">${st.icon} ${st.label}</span>
+      <span class="step-msg" id="sm-${st.key}">대기 중</span>
+      <span class="step-detail" id="sd-${st.key}"></span>
+    `;
+    stepList.appendChild(div);
+  });
+}
+
+function setStep(key, status, msg, detail) {
+  const item = document.getElementById("si-" + key);
+  const msgEl = document.getElementById("sm-" + key);
+  const detEl = document.getElementById("sd-" + key);
+  if (!item) return;
+  item.className = "step-item " + status;
+  if (status === "running") {
+    item.querySelector(".step-dot").style.display = "none";
+    if (!item.querySelector(".spinner")) {
+      const sp = document.createElement("span");
+      sp.className = "spinner";
+      item.insertBefore(sp, item.children[1]);
+    }
+  } else {
+    item.querySelector(".step-dot").style.display = "";
+    const sp = item.querySelector(".spinner");
+    if (sp) sp.remove();
+  }
+  msgEl.textContent = msg || "";
+  if (detail) detEl.textContent = detail;
+}
+
+// ── Run ────────────────────────────────────────────────────────────────────
+runBtn.addEventListener("click", async () => {
+  if (!selectedFile) return;
+  runBtn.disabled = true;
+  errorBox.classList.remove("show");
+  statsEl.classList.remove("show");
+  txWrap.classList.remove("show");
+  stepper.classList.add("show");
+  initStepper();
+
+  // Upload
+  const fd = new FormData();
+  fd.append("file", selectedFile);
+  let uploadRes;
+  try {
+    uploadRes = await fetch("/upload", { method: "POST", body: fd }).then(r => r.json());
+  } catch(e) {
+    showError("업로드 실패: " + e.message, "");
+    runBtn.disabled = false;
+    return;
+  }
+  jobId = uploadRes.job_id;
+  const model = modelSel.value;
+
+  // SSE
+  const es = new EventSource(`/process/${jobId}?whisper=${model}`);
+
+  es.addEventListener("step", e => {
+    const d = JSON.parse(e.data);
+    setStep(d.step, d.status, d.msg, d.detail);
+    if (d.step === "asr" && d.status === "done" && d.transcript) {
+      renderTranscript(d.transcript, []);
+    }
+    if (d.step === "filler" && d.status === "done" && d.filler_list) {
+      updateFillerMarks(d.filler_list);
+    }
+  });
+
+  es.addEventListener("done", e => {
+    es.close();
+    const d = JSON.parse(e.data);
+    document.getElementById("sTotal").textContent    = fmtSec(d.total);
+    document.getElementById("sEdited").textContent   = fmtSec(d.edited);
+    document.getElementById("sRatio").textContent    = d.ratio + "%";
+    document.getElementById("sSilences").textContent = d.silences;
+    document.getElementById("sFillers").textContent  = d.fillers;
+    document.getElementById("sSegments").textContent = d.segments;
+    document.getElementById("dlBtn").href = `/download/${d.job_id}`;
+    statsEl.classList.add("show");
+    if (d.transcript) renderTranscript(d.transcript, []);
+    runBtn.disabled = false;
+  });
+
+  es.addEventListener("error", e => {
+    try {
+      const d = JSON.parse(e.data);
+      showError(d.msg, d.trace || "");
+    } catch {
+      showError("연결 오류 또는 서버 중단", "");
+    }
+    es.close();
+    runBtn.disabled = false;
+  });
+
+  es.onerror = () => {
+    es.close();
+    runBtn.disabled = false;
+  };
+});
+
+// ── Transcript render ──────────────────────────────────────────────────────
+let _txData = [];
+let _fillerSet = new Set();
+
+function renderTranscript(segs, fillers) {
+  _txData = segs;
+  txScroll.innerHTML = "";
+  txCount.textContent = `(${segs.length}개)`;
+  segs.forEach(s => {
+    const row = document.createElement("div");
+    const isFl = _fillerSet.has(s.s);
+    row.className = "tx-row" + (isFl ? " filler" : "");
+    row.innerHTML = `
+      <span class="tx-time">${fmtSec(s.s)} → ${fmtSec(s.e)}</span>
+      <span class="tx-text">${esc(s.t)}${isFl ? '<span class="tag filler">filler</span>':''}
+      </span>`;
+    txScroll.appendChild(row);
+  });
+  txWrap.classList.add("show");
+}
+
+function updateFillerMarks(fillers) {
+  _fillerSet = new Set(fillers.map(f => f.s));
+  if (_txData.length) renderTranscript(_txData, fillers);
+}
+
+function esc(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function showError(msg, trace) {
+  errorBox.classList.add("show");
+  errorPre.textContent = trace ? msg + "\n\n" + trace : msg;
+  STEPS.forEach(st => {
+    const item = document.getElementById("si-" + st.key);
+    if (item && item.classList.contains("running"))
+      setStep(st.key, "error", "실패");
+  });
+}
+</script>
+</body>
+</html>
