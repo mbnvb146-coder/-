@@ -6,6 +6,7 @@ import shutil
 import time
 import uuid
 import zipfile
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from io import BytesIO
 
