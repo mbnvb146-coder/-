@@ -1,19 +1,24 @@
-"""Resolve a working ffmpeg/ffprobe binary path."""
-import os
+"""Resolve a working ffmpeg binary. Prefers system ffmpeg (Docker), falls back to imageio-ffmpeg."""
 import shutil
 import subprocess
+import pathlib
 
 
 def _check(path: str) -> bool:
     try:
-        subprocess.run([path, "-version"], capture_output=True, timeout=5)
-        return True
+        r = subprocess.run([path, "-version"], capture_output=True, timeout=5)
+        return r.returncode == 0
     except Exception:
         return False
 
 
 def _get() -> str:
-    # 1. imageio-ffmpeg bundled static binary (always works on Linux)
+    # 1. System ffmpeg (installed via apt in Docker)
+    p = shutil.which("ffmpeg")
+    if p and _check(p):
+        return p
+
+    # 2. imageio-ffmpeg bundled static binary (local dev fallback)
     try:
         import imageio_ffmpeg
         p = imageio_ffmpeg.get_ffmpeg_exe()
@@ -21,21 +26,14 @@ def _get() -> str:
             return p
     except ImportError:
         pass
-    # 2. System PATH
-    p = shutil.which("ffmpeg")
-    if p and _check(p):
-        return p
+
     raise RuntimeError(
-        "ffmpeg를 찾을 수 없습니다. pip install imageio-ffmpeg 또는 ffmpeg를 설치하세요."
+        "ffmpeg not found. Install with: apt install ffmpeg  or  pip install imageio-ffmpeg"
     )
 
 
 FFMPEG = _get()
 
-# ffprobe: same dir as ffmpeg binary, or substitute imageio's ffmpeg with -formats probe
-import pathlib
+# ffprobe: look next to ffmpeg binary
 _sibling = pathlib.Path(FFMPEG).parent / "ffprobe"
-if _sibling.exists() and _check(str(_sibling)):
-    FFPROBE = str(_sibling)
-else:
-    FFPROBE = FFMPEG  # ffprobe fallback: use ffmpeg -i for duration
+FFPROBE = str(_sibling) if (_sibling.exists() and _check(str(_sibling))) else FFMPEG
