@@ -222,12 +222,15 @@ select.model:focus{outline:1px solid var(--green)}
       </div>
 
       <div class="draft-box">
-        <div class="label">✓ CapCut 드래프트 경로</div>
-        <div class="path" id="draftPath">—</div>
+        <div class="label">✓ CapCut 드래프트 완성</div>
+        <a class="btn btn-primary" id="dlBtn" href="#" download style="margin-bottom:12px;display:inline-flex">
+          ⬇ ZIP 다운로드
+        </a>
         <div class="hint">
-          이 폴더를 CapCut 드래프트 디렉토리에 복사하세요.<br>
-          Android: <code>/sdcard/DCIM/CapCut/Projects/</code> &nbsp;|&nbsp;
-          iPhone: <code>Files &gt; CapCut &gt; Projects/</code>
+          다운로드한 ZIP을 압축 해제 후 폴더째로 복사하세요.<br>
+          <strong>iPad/iPhone:</strong> Files 앱 &gt; CapCut &gt; Projects/ 폴더에 붙여넣기<br>
+          <strong>Android:</strong> <code>/sdcard/DCIM/CapCut/Projects/</code><br>
+          그 후 CapCut 앱 재시작 → 프로젝트 목록에 나타납니다.
         </div>
       </div>
     </div>
@@ -397,7 +400,7 @@ runBtn.addEventListener("click", async () => {
     document.getElementById("sSilences").textContent = d.silences;
     document.getElementById("sFillers").textContent  = d.fillers;
     document.getElementById("sSegments").textContent = d.segments;
-    document.getElementById("draftPath").textContent = d.draft_path;
+    document.getElementById("dlBtn").href = `/download/${d.job_id}`;
     statsEl.classList.add("show");
     if (d.transcript) renderTranscript(d.transcript, []);
     runBtn.disabled = false;

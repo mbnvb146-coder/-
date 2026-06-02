@@ -5,11 +5,12 @@ import os
 import shutil
 import time
 import uuid
+import zipfile
 from pathlib import Path
-from typing import AsyncGenerator
+from io import BytesIO
 
 from fastapi import FastAPI, File, Form, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse as FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
@@ -60,6 +61,26 @@ async def process(job_id: str, whisper: str = "base"):
         _pipeline_sse(job_id, video_path, whisper),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/download/{job_id}")
+async def download(job_id: str):
+    """Download the generated CapCut draft as a zip file."""
+    draft_path = DRAFT_DIR / f"agent_{job_id}"
+    if not draft_path.exists():
+        return JSONResponse({"error": "draft not found"}, status_code=404)
+
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in draft_path.iterdir():
+            zf.write(f, f"agent_{job_id}/{f.name}")
+    buf.seek(0)
+
+    return FileResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=capcut_draft_{job_id}.zip"},
     )
 
 
