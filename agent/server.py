@@ -26,13 +26,17 @@ STATIC_DIR = BASE / "static"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 DRAFT_DIR.mkdir(parents=True, exist_ok=True)
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="CapCut Agent")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# Mount static files only if directory exists and has content
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/health")
