@@ -8,6 +8,7 @@ import uuid
 import zipfile
 from pathlib import Path
 from io import BytesIO
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse as FileResponse
