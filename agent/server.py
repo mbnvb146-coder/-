@@ -1,186 +1,123 @@
-"""CapCut Agent — FastAPI server with SSE progress streaming."""
-import asyncio
-import json
+"""네이버 블로그 자동 작성 서버"""
 import os
-import shutil
-import time
+import json
 import uuid
-import zipfile
 from pathlib import Path
-from io import BytesIO
 
-from fastapi import FastAPI, File, Form, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse as FileResponse
+from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import StreamingResponse
+from fastapi.templating import Jinja2Templates
 
-from .silence import detect_silence, silence_to_keep, get_duration
-from .asr import transcribe
-from .filler import detect_fillers, build_keep_intervals
-from .draft_builder import build_draft
+from .blog_writer import generate_blog_post
+from .image_generator import generate_blog_images
+from .naver_poster import markdown_to_naver_html, inject_images_into_html, post_to_naver_blog
 
-BASE = Path(__file__).parent.parent
-UPLOAD_DIR = BASE / "uploads"
-DRAFT_DIR  = BASE / "drafts"
-STATIC_DIR = BASE / "static"
+app = FastAPI(title="네이버 블로그 자동 작성기")
 
-UPLOAD_DIR.mkdir(exist_ok=True)
-DRAFT_DIR.mkdir(exist_ok=True)
+BASE_DIR = Path(__file__).parent.parent
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
-app = FastAPI(title="CapCut Agent")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# 임시 초안 저장소 (메모리)
+drafts: dict[str, dict] = {}
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
-    return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.post("/upload")
-async def upload(file: UploadFile = File(...)):
-    job_id = uuid.uuid4().hex[:10]
-    ext = Path(file.filename).suffix.lower() or ".mp4"
-    dest = UPLOAD_DIR / f"{job_id}{ext}"
-    with open(dest, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-    return {"job_id": job_id, "filename": file.filename, "path": str(dest)}
+@app.post("/api/generate")
+async def generate(
+    topic: str = Form(...),
+    style: str = Form("정보성"),
+    tone: str = Form("친근한"),
+    image_count: int = Form(2),
+):
+    """블로그 글 + 이미지 자동 생성"""
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise HTTPException(400, "OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+
+    # 글 생성
+    post = await generate_blog_post(topic, style, tone)
+
+    # 이미지 생성
+    images = await generate_blog_images(topic, count=image_count)
+
+    # HTML 변환
+    html_body = markdown_to_naver_html(post["content"])
+    valid_urls = [img["url"] for img in images if img.get("url")]
+    final_html = inject_images_into_html(html_body, valid_urls)
+
+    draft_id = str(uuid.uuid4())
+    drafts[draft_id] = {
+        "id": draft_id,
+        "title": post["title"],
+        "markdown": post["content"],
+        "html": final_html,
+        "images": images,
+        "topic": topic,
+        "style": style,
+        "tone": tone,
+    }
+
+    return JSONResponse({"draft_id": draft_id, "title": post["title"]})
 
 
-@app.get("/process/{job_id}")
-async def process(job_id: str, whisper: str = "base"):
-    """SSE endpoint: streams pipeline steps."""
-    # Find uploaded file
-    matches = list(UPLOAD_DIR.glob(f"{job_id}.*"))
-    if not matches:
-        return JSONResponse({"error": "job not found"}, status_code=404)
-    video_path = str(matches[0])
+@app.get("/review/{draft_id}", response_class=HTMLResponse)
+async def review(request: Request, draft_id: str):
+    """최종 검토 페이지"""
+    draft = drafts.get(draft_id)
+    if not draft:
+        raise HTTPException(404, "초안을 찾을 수 없습니다.")
+    return templates.TemplateResponse("review.html", {"request": request, "draft": draft})
 
-    return StreamingResponse(
-        _pipeline_sse(job_id, video_path, whisper),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+
+@app.post("/api/update-draft/{draft_id}")
+async def update_draft(draft_id: str, request: Request):
+    """검토 후 수정 내용 저장"""
+    draft = drafts.get(draft_id)
+    if not draft:
+        raise HTTPException(404, "초안을 찾을 수 없습니다.")
+
+    body = await request.json()
+    if "title" in body:
+        draft["title"] = body["title"]
+    if "markdown" in body:
+        draft["markdown"] = body["markdown"]
+        html_body = markdown_to_naver_html(body["markdown"])
+        valid_urls = [img["url"] for img in draft["images"] if img.get("url")]
+        draft["html"] = inject_images_into_html(html_body, valid_urls)
+
+    return JSONResponse({"success": True, "html": draft["html"]})
+
+
+@app.post("/api/publish/{draft_id}")
+async def publish(draft_id: str, request: Request):
+    """네이버 블로그에 최종 게시"""
+    draft = drafts.get(draft_id)
+    if not draft:
+        raise HTTPException(404, "초안을 찾을 수 없습니다.")
+
+    body = await request.json()
+    access_token = body.get("access_token") or os.environ.get("NAVER_ACCESS_TOKEN", "")
+
+    if not access_token:
+        raise HTTPException(400, "네이버 액세스 토큰이 필요합니다.")
+
+    result = await post_to_naver_blog(
+        title=draft["title"],
+        html_content=draft["html"],
+        access_token=access_token,
     )
 
-
-@app.get("/download/{job_id}")
-async def download(job_id: str):
-    """Download the generated CapCut draft as a zip file."""
-    draft_path = DRAFT_DIR / f"agent_{job_id}"
-    if not draft_path.exists():
-        return JSONResponse({"error": "draft not found"}, status_code=404)
-
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in draft_path.iterdir():
-            zf.write(f, f"agent_{job_id}/{f.name}")
-    buf.seek(0)
-
-    return FileResponse(
-        buf,
-        media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename=capcut_draft_{job_id}.zip"},
-    )
+    return JSONResponse(result)
 
 
-async def _send(event: str, data: dict) -> str:
-    await asyncio.sleep(0.5)   # min 0.5s per step for animation visibility
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-
-async def _pipeline_sse(
-    job_id: str, video_path: str, whisper_model: str
-) -> AsyncGenerator[str, None]:
-    try:
-        # ── Step 1: silence ──────────────────────────────────────────────
-        yield await _send("step", {"step": "silence", "status": "running", "msg": "무음 구간 감지 중…"})
-        total = get_duration(video_path)
-        silences = detect_silence(video_path)
-        keep_silence = silence_to_keep(total, silences)
-        cut_secs = sum(e - s for s, e in silences)
-        yield await _send("step", {
-            "step": "silence", "status": "done",
-            "msg": f"무음 {len(silences)}구간 감지",
-            "detail": f"{cut_secs:.1f}s 제거 예정",
-            "total": round(total, 2),
-            "silences": len(silences),
-            "cut_secs": round(cut_secs, 2),
-        })
-
-        # ── Step 2: ASR ──────────────────────────────────────────────────
-        yield await _send("step", {"step": "asr", "status": "running", "msg": "음성 인식 중… (Whisper)"})
-        asr_error = None
-        try:
-            segments = await transcribe(video_path, language="ko", model_size=whisper_model)
-        except Exception as e:
-            asr_error = str(e).split("\n")[0]
-            segments = []
-        word_count = sum(len(s["text"].split()) for s in segments)
-        if asr_error:
-            yield await _send("step", {
-                "step": "asr", "status": "done",
-                "msg": f"ASR 건너뜀 (모델 미설치)",
-                "detail": "자막 없이 진행",
-                "segments": 0, "words": 0, "transcript": [],
-            })
-        else:
-            yield await _send("step", {
-                "step": "asr", "status": "done",
-                "msg": f"자막 세그먼트 {len(segments)}개",
-                "detail": f"단어 {word_count}개",
-                "segments": len(segments),
-                "words": word_count,
-                "transcript": [{"s": round(s["start"],2), "e": round(s["end"],2), "t": s["text"]} for s in segments[:40]],
-            })
-
-        # ── Step 3: filler / NG ──────────────────────────────────────────
-        yield await _send("step", {"step": "filler", "status": "running", "msg": "잔말·NG 감지 중…"})
-        fillers = detect_fillers(segments)
-        keep_intervals = build_keep_intervals(total, silences, fillers)
-        edited_dur = sum(e - s for s, e in keep_intervals)
-        yield await _send("step", {
-            "step": "filler", "status": "done",
-            "msg": f"잔말/NG {len(fillers)}개 제거",
-            "detail": f"편집 후 {edited_dur:.1f}s",
-            "fillers": len(fillers),
-            "keep_count": len(keep_intervals),
-            "edited_dur": round(edited_dur, 2),
-            "filler_list": [{"s": round(f["start"],2), "e": round(f["end"],2), "t": f["text"], "r": f["reason"]} for f in fillers],
-        })
-
-        # ── Step 4: draft ────────────────────────────────────────────────
-        yield await _send("step", {"step": "draft", "status": "running", "msg": "CapCut 드래프트 생성 중…"})
-        draft_name = f"agent_{job_id}"
-        draft_path = build_draft(
-            video_path=video_path,
-            total_duration=total,
-            keep_intervals=keep_intervals,
-            subtitles=segments,
-            draft_root=str(DRAFT_DIR),
-            draft_name=draft_name,
-        )
-        yield await _send("step", {
-            "step": "draft", "status": "done",
-            "msg": "드래프트 생성 완료",
-            "detail": draft_path,
-            "draft_path": draft_path,
-            "draft_name": draft_name,
-        })
-
-        yield await _send("done", {
-            "job_id": job_id,
-            "total": round(total, 2),
-            "edited": round(edited_dur, 2),
-            "removed": round(total - edited_dur, 2),
-            "ratio": round((total - edited_dur) / total * 100, 1),
-            "draft_path": draft_path,
-            "segments": len(segments),
-            "fillers": len(fillers),
-            "silences": len(silences),
-            "transcript": [{"s": round(s["start"],2), "e": round(s["end"],2), "t": s["text"]} for s in segments],
-        })
-
-    except Exception as exc:
-        import traceback
-        yield await _send("error", {"msg": str(exc), "trace": traceback.format_exc()})
+@app.get("/api/draft/{draft_id}")
+async def get_draft(draft_id: str):
+    draft = drafts.get(draft_id)
+    if not draft:
+        raise HTTPException(404, "초안을 찾을 수 없습니다.")
+    return JSONResponse(draft)

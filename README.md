@@ -1,78 +1,76 @@
-# CapCut 미용실 쇼츠 에이전트
+# 네이버 블로그 자동 작성기
 
-미용실 촬영 영상을 분석해 **상담 → 시술 → 완성본** 구조의 40-50초 쇼츠를 자동으로 컷편집하고 자막을 생성해 **CapCut 프로젝트 파일**로 출력합니다.
+GPT-4로 블로그 글을 자동 작성하고, DALL-E 3로 이미지를 자동 생성한 뒤, 최종 검토 후 네이버 블로그에 바로 게시할 수 있는 웹 앱입니다.
 
-## 기능
+## 주요 기능
 
 | 기능 | 설명 |
 |------|------|
-| 🔇 침묵 컷 | 말이 없는 구간 자동 제거 |
-| 🎬 저동작 컷 | 버벅임·잔동작 구간 자동 제거 |
-| 📝 자막 생성 | Whisper AI로 한국어 자막 자동 생성 |
-| ✂️ 쇼츠 구조 | 상담(핵심 발화) / 시술(하이라이트) / 완성본 자동 배분 |
-| 📁 CapCut 출력 | `draft_content.json` 직접 생성 (앱에서 바로 열기) |
+| ✍️ 글 자동 생성 | GPT-4o로 주제·스타일·톤에 맞는 블로그 글 작성 |
+| 🖼️ 이미지 자동 생성 | DALL-E 3로 주제에 맞는 블로그 이미지 1-3장 생성 |
+| 👁️ 미리보기 검토 | 게시 전 제목·본문·이미지 직접 수정 가능 |
+| 🚀 1클릭 게시 | 검토 후 네이버 블로그에 바로 포스팅 |
 
 ## 설치
 
 ```bash
 pip install -r requirements.txt
-
-# ffmpeg 필요
-# macOS:  brew install ffmpeg
-# Ubuntu: sudo apt install ffmpeg
-# Windows: https://ffmpeg.org/download.html
 ```
 
-## 사용법
+## 환경변수 설정
 
-### 기본 사용 (자동 구간 분배)
+`.env.example`을 복사해 `.env`로 만들고 값을 채웁니다:
+
 ```bash
-python -m capcut_agent.main 영상파일.mp4
+cp .env.example .env
 ```
 
-### 구간 직접 지정 (더 정확한 편집)
+```env
+# 필수: OpenAI API 키
+OPENAI_API_KEY=sk-...
+
+# 선택: 네이버 액세스 토큰 (웹 UI에서도 입력 가능)
+NAVER_ACCESS_TOKEN=
+```
+
+## 실행
+
 ```bash
-# 상담 0~60초, 시술 60~180초, 완성 180초~끝
-python -m capcut_agent.main 영상파일.mp4 --consult-end 60 --process-end 180
+python main.py
+# 브라우저에서 http://localhost:8000 접속
 ```
 
-### 자막 없이 빠르게
-```bash
-python -m capcut_agent.main 영상파일.mp4 --no-subtitles
-```
+## 사용 흐름
 
-### 전체 옵션
-```
-  -o, --output-dir TEXT          출력 폴더 (기본: ./output)
-  -p, --project-name TEXT        프로젝트 이름
-  --consult-end FLOAT            상담 구간 종료 시각(초)
-  --process-end FLOAT            시술 구간 종료 시각(초)
-  --no-subtitles                 자막 생성 건너뛰기
-  --whisper-model [tiny|base|small|medium]
-  --silence-db FLOAT             침묵 감지 dB 임계값 (기본: -35)
-  --silence-min FLOAT            최소 침묵 길이 초 (기본: 0.4)
-  --motion-threshold FLOAT       저동작 감지 임계값 (기본: 1.5)
-```
+1. **주제 입력**: 블로그 주제, 스타일(정보성/리뷰/일상 등), 톤, 이미지 수 선택
+2. **자동 생성**: GPT-4가 글 작성 + DALL-E 3가 이미지 생성 (약 20-40초)
+3. **검토 페이지**: 제목·본문 자유롭게 수정, 이미지 선택/해제
+4. **게시**: 네이버 액세스 토큰 입력 후 1클릭 게시
 
-## CapCut에서 열기
+## 네이버 액세스 토큰 발급
 
-1. 생성된 폴더(`output/영상명_shorts/`)를 스마트폰으로 복사
-2. 복사 위치:
-   - **Android**: `/storage/emulated/0/DCIM/CapCut/Projects/`
-   - **iPhone**: `파일 앱 > CapCut > Projects/`
-3. CapCut 재시작 → 프로젝트 목록에 나타남
+1. [네이버 개발자센터](https://developers.naver.com) 앱 등록
+2. 블로그 Write 권한 포함한 OAuth 인증
+3. 발급된 `access_token`을 웹 UI 또는 `.env`에 입력
 
 ## 프로젝트 구조
 
 ```
-capcut_agent/
-├── core/
-│   ├── analyzer.py      # 영상 분석 (침묵/저동작 감지)
-│   ├── salon_editor.py  # 미용실 쇼츠 편집 로직
-│   └── transcriber.py   # Whisper 자막 생성
-├── models/
-│   └── capcut_schema.py # CapCut JSON 스키마
-├── utils/
-│   └── capcut_writer.py # 프로젝트 파일 출력
-└── main.py              # CLI 진입점
+├── agent/
+│   ├── blog_writer.py      # GPT-4 블로그 글 생성
+│   ├── image_generator.py  # DALL-E 3 이미지 생성
+│   ├── naver_poster.py     # 네이버 블로그 API 포스팅
+│   └── server.py           # FastAPI 서버
+├── templates/
+│   ├── index.html          # 생성 폼 페이지
+│   └── review.html         # 검토/게시 페이지
+├── main.py
+└── requirements.txt
+```
+
+## Railway 배포
+
+```toml
+# railway.toml 이미 설정됨
+# OPENAI_API_KEY 환경변수를 Railway 대시보드에 추가하세요
 ```
