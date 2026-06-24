@@ -3,287 +3,245 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>최종 검토 - {{ draft.title }}</title>
+<title>검토 - {{ draft.title }}</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: #f0f2f5; color: #333; }
 
-  .header {
-    background: #03C75A; padding: 16px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-    color: white; position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  }
-  .header-left { display: flex; align-items: center; gap: 12px; }
-  .header h1 { font-size: 18px; font-weight: 700; }
-  .badge { background: rgba(255,255,255,0.25); padding: 4px 12px; border-radius: 20px; font-size: 12px; }
-  .btn-back { background: transparent; border: 1.5px solid rgba(255,255,255,0.6); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
-  .btn-back:hover { background: rgba(255,255,255,0.15); }
+.header {
+  background: #03C75A; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  color: white; height: 58px; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.header h1 { font-size: 16px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 16px; }
+.btn-sm { padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; white-space: nowrap; }
+.btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.6); }
+.btn-green { background: white; color: #03C75A; }
+.btn-copy { background: #ff6f00; color: white; }
 
-  .layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; max-width: 1200px; margin: 24px auto; padding: 0 20px; }
+.layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; max-width: 1280px; margin: 24px auto; padding: 0 20px; }
 
-  .panel { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.07); overflow: hidden; }
-  .panel-header { padding: 18px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
-  .panel-header h2 { font-size: 16px; font-weight: 700; }
-  .panel-body { padding: 24px; }
+.card { background: white; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+.card-header { padding: 16px 22px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.card-header h2 { font-size: 15px; font-weight: 700; }
+.card-body { padding: 18px 22px; }
 
-  /* 제목 편집 */
-  #titleEdit {
-    width: 100%; border: 2px solid #eee; border-radius: 10px;
-    padding: 12px 16px; font-size: 16px; font-weight: 600;
-    outline: none; transition: border-color 0.2s;
-  }
-  #titleEdit:focus { border-color: #03C75A; }
+input[type=text], textarea {
+  width: 100%; border: 1.5px solid #e0e0e0; border-radius: 8px;
+  padding: 10px 14px; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+input[type=text]:focus, textarea:focus { border-color: #03C75A; }
+textarea { height: 360px; resize: vertical; font-family: 'Courier New', monospace; line-height: 1.6; }
 
-  /* 마크다운 에디터 */
-  #markdownEdit {
-    width: 100%; height: 420px; border: 2px solid #eee; border-radius: 10px;
-    padding: 14px 16px; font-size: 14px; line-height: 1.7;
-    font-family: 'Courier New', monospace; resize: vertical; outline: none;
-    transition: border-color 0.2s;
-  }
-  #markdownEdit:focus { border-color: #03C75A; }
+.btn-refresh { background: #f0faf5; color: #03C75A; border: 1.5px solid #03C75A; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.btn-refresh:hover { background: #e0f5ea; }
 
-  .btn-refresh {
-    background: #f0faf5; color: #03C75A; border: 1.5px solid #03C75A;
-    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
-  }
-  .btn-refresh:hover { background: #e0f5ea; }
+.preview-frame {
+  border: 1px solid #eee; border-radius: 10px; padding: 20px;
+  min-height: 200px; background: #fafafa; font-size: 15px; line-height: 1.8;
+  max-height: 480px; overflow-y: auto;
+}
+.preview-frame img { max-width: 100%; border-radius: 8px; margin: 10px 0; }
+.preview-frame h2, .preview-frame h3, .preview-frame h4 { margin: 14px 0 6px; }
 
-  /* 미리보기 */
-  .preview-frame {
-    border: 1px solid #eee; border-radius: 10px; padding: 20px;
-    min-height: 300px; background: #fafafa;
-    font-size: 15px; line-height: 1.8;
-    max-height: 520px; overflow-y: auto;
-  }
-  .preview-frame img { max-width: 100%; border-radius: 8px; margin: 10px 0; }
-  .preview-frame h2 { font-size: 20px; margin: 16px 0 8px; }
-  .preview-frame h3 { font-size: 17px; margin: 14px 0 6px; }
-  .preview-frame p { margin: 6px 0; }
+.img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.img-item { border-radius: 10px; overflow: hidden; border: 2px solid #eee; cursor: pointer; position: relative; }
+.img-item img { width: 100%; height: 110px; object-fit: cover; display: block; }
+.img-item.selected { border-color: #03C75A; }
+.check-badge {
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px;
+  border-radius: 50%; background: #03C75A; color: white;
+  display: none; align-items: center; justify-content: center; font-size: 12px;
+}
+.img-item.selected .check-badge { display: flex; }
 
-  /* 이미지 섹션 */
-  .img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-  .img-item { position: relative; border-radius: 10px; overflow: hidden; border: 2px solid #eee; cursor: pointer; }
-  .img-item img { width: 100%; height: 100px; object-fit: cover; display: block; }
-  .img-item.error { background: #f5f5f5; display: flex; align-items: center; justify-content: center; height: 100px; font-size: 12px; color: #999; }
-  .img-item .img-check {
-    position: absolute; top: 6px; right: 6px;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: #03C75A; color: white;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; display: none;
-  }
-  .img-item.selected { border-color: #03C75A; }
-  .img-item.selected .img-check { display: flex; }
+.copy-section { margin-top: 16px; }
+.copy-section p { font-size: 13px; color: #555; margin-bottom: 8px; line-height: 1.5; }
+.btn-copy-html {
+  width: 100%; padding: 13px; background: #ff6f00; color: white;
+  border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-copy-html:hover { background: #e65100; }
 
-  /* 게시 패널 */
-  .publish-panel { display: flex; flex-direction: column; gap: 0; }
-  .publish-section { padding: 20px 24px; border-bottom: 1px solid #f0f0f0; }
-  .publish-section:last-child { border-bottom: none; }
-  .publish-section h3 { font-size: 14px; font-weight: 700; color: #444; margin-bottom: 12px; }
-  .publish-section input {
-    width: 100%; padding: 10px 14px; border: 1.5px solid #ddd; border-radius: 8px;
-    font-size: 14px; outline: none;
-  }
-  .publish-section input:focus { border-color: #03C75A; }
-  .publish-section small { display: block; margin-top: 6px; font-size: 12px; color: #999; }
+.step-guide {
+  margin-top: 14px; padding: 14px; background: #fff8f0; border-radius: 10px;
+  border: 1px solid #ffe0b2;
+}
+.step-guide h4 { font-size: 13px; font-weight: 700; color: #e65100; margin-bottom: 8px; }
+.step-guide ol { padding-left: 16px; }
+.step-guide li { font-size: 12px; color: #666; line-height: 1.7; }
 
-  .checklist { list-style: none; }
-  .checklist li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #555; margin-bottom: 8px; }
-  .checklist li::before { content: '✅'; font-size: 13px; flex-shrink: 0; }
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #333; color: white; padding: 12px 22px; border-radius: 30px;
+  font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 2000;
+}
+.toast.show { opacity: 1; }
 
-  .btn-publish {
-    width: calc(100% - 48px); margin: 0 24px 24px;
-    padding: 14px; background: #03C75A; color: white;
-    border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
-    cursor: pointer; transition: background 0.2s;
-  }
-  .btn-publish:hover { background: #02a84a; }
-  .btn-publish:disabled { background: #aaa; cursor: not-allowed; }
+.saved-badge { font-size: 12px; color: #03C75A; display: none; }
 
-  .result-msg {
-    margin: 0 24px 16px; padding: 14px; border-radius: 10px;
-    font-size: 14px; display: none;
-  }
-  .result-msg.success { background: #f0faf5; border: 1px solid #b2e4c9; color: #1a7a3a; }
-  .result-msg.error { background: #fff0f0; border: 1px solid #ffcccc; color: #cc0000; }
-
-  @media (max-width: 900px) {
-    .layout { grid-template-columns: 1fr; }
-  }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-left">
-    <span class="badge">✍️ 최종 검토</span>
-    <h1 id="headerTitle">{{ draft.title[:40] }}...</h1>
-  </div>
-  <button class="btn-back" onclick="location.href='/'">← 새 글 작성</button>
+  <button class="btn-sm btn-outline" onclick="location.href='/'">← 목록</button>
+  <h1 id="headerTitle">{{ draft.title }}</h1>
+  <button class="btn-sm btn-green" onclick="copyHtml()">📋 HTML 복사</button>
 </div>
 
 <div class="layout">
-  <!-- 왼쪽: 편집 + 미리보기 -->
-  <div style="display:flex;flex-direction:column;gap:20px;">
-    <!-- 제목 편집 -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>📌 제목 수정</h2>
+  <!-- 편집 영역 -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card">
+      <div class="card-header">
+        <h2>📌 제목</h2>
+        <span class="saved-badge" id="savedBadge">저장됨 ✓</span>
       </div>
-      <div class="panel-body">
+      <div class="card-body">
         <input type="text" id="titleEdit" value="{{ draft.title }}" />
       </div>
     </div>
 
-    <!-- 본문 편집 -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>📝 본문 수정</h2>
-        <button class="btn-refresh" onclick="refreshPreview()">🔄 미리보기 갱신</button>
+    <div class="card">
+      <div class="card-header">
+        <h2>📝 본문 (마크다운)</h2>
+        <button class="btn-refresh" onclick="refreshPreview()">🔄 미리보기</button>
       </div>
-      <div class="panel-body">
+      <div class="card-body">
         <textarea id="markdownEdit">{{ draft.markdown }}</textarea>
       </div>
     </div>
 
-    <!-- 미리보기 -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>👁️ 블로그 미리보기</h2>
-      </div>
-      <div class="panel-body">
-        <div class="preview-frame" id="previewFrame">
-          {{ draft.html | safe }}
-        </div>
+    <div class="card">
+      <div class="card-header"><h2>👁️ 미리보기</h2></div>
+      <div class="card-body">
+        <div class="preview-frame" id="previewFrame">{{ draft.html | safe }}</div>
       </div>
     </div>
   </div>
 
-  <!-- 오른쪽: 이미지 + 게시 -->
-  <div style="display:flex;flex-direction:column;gap:20px;">
-    <!-- 생성된 이미지 -->
-    <div class="panel">
-      <div class="panel-header">
-        <h2>🖼️ 생성된 이미지</h2>
-      </div>
-      <div class="panel-body">
-        <p style="font-size:13px;color:#666;margin-bottom:10px;">포함할 이미지를 클릭하여 선택/해제하세요.</p>
+  <!-- 오른쪽 -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card">
+      <div class="card-header"><h2>🖼️ 이미지</h2></div>
+      <div class="card-body">
+        <p style="font-size:13px;color:#666;margin-bottom:10px;">클릭하여 포함할 이미지를 선택하세요.</p>
         <div class="img-grid" id="imgGrid">
           {% for img in draft.images %}
             {% if img.url %}
-            <div class="img-item selected" data-index="{{ img.index }}" data-url="{{ img.url }}" onclick="toggleImage(this)">
-              <img src="{{ img.url }}" alt="생성된 이미지 {{ img.index + 1 }}" loading="lazy" />
-              <div class="img-check">✓</div>
+            <div class="img-item selected" data-url="{{ img.url }}" onclick="toggleImage(this)">
+              <img src="{{ img.url }}" loading="lazy" />
+              <div class="check-badge">✓</div>
             </div>
-            {% else %}
-            <div class="img-item error">❌ 생성 실패</div>
             {% endif %}
           {% endfor %}
         </div>
       </div>
     </div>
 
-    <!-- 게시 설정 -->
-    <div class="panel publish-panel">
-      <div class="publish-section">
-        <h3>🔑 네이버 액세스 토큰</h3>
-        <input type="password" id="accessToken"
-          placeholder="네이버 OAuth 액세스 토큰 입력"
-          value="{{ '' }}" />
-        <small>네이버 개발자센터에서 발급받은 토큰을 입력하세요.<br>
-        (또는 환경변수 NAVER_ACCESS_TOKEN 설정)</small>
-      </div>
-      <div class="publish-section">
-        <h3>✅ 게시 전 확인사항</h3>
-        <ul class="checklist">
-          <li>제목이 자연스럽고 SEO에 적합한가</li>
-          <li>본문 내용이 정확하고 오류가 없는가</li>
-          <li>이미지가 주제와 어울리는가</li>
-          <li>해시태그가 적절하게 포함되었는가</li>
-        </ul>
+    <div class="card">
+      <div class="card-header"><h2>📤 네이버 블로그에 올리기</h2></div>
+      <div class="card-body">
+        <div class="copy-section">
+          <p>아래 버튼으로 HTML을 복사한 뒤, 네이버 블로그 에디터에 붙여넣기 하세요.</p>
+          <button class="btn-copy-html" onclick="copyHtml()">📋 블로그 HTML 전체 복사</button>
+        </div>
+
+        <div class="step-guide">
+          <h4>📖 블로그에 올리는 방법</h4>
+          <ol>
+            <li>위 버튼으로 HTML 복사</li>
+            <li>네이버 블로그 → 글쓰기 클릭</li>
+            <li>에디터 우측 상단 <strong>HTML</strong> 버튼 클릭</li>
+            <li>복사한 내용 붙여넣기 후 확인</li>
+            <li>제목 입력 후 발행</li>
+          </ol>
+        </div>
       </div>
     </div>
 
-    <div class="result-msg" id="resultMsg"></div>
-
-    <button class="btn-publish" id="publishBtn" onclick="publish()">
-      🚀 네이버 블로그에 게시하기
-    </button>
+    <div class="card">
+      <div class="card-header"><h2>ℹ️ 정보</h2></div>
+      <div class="card-body">
+        <table style="width:100%;font-size:13px;border-collapse:collapse;">
+          <tr><td style="padding:6px 0;color:#888;width:60px;">주제</td><td>{{ draft.topic }}</td></tr>
+          <tr><td style="padding:6px 0;color:#888;">스타일</td><td>{{ draft.style }}</td></tr>
+          <tr><td style="padding:6px 0;color:#888;">톤</td><td>{{ draft.tone }}</td></tr>
+          <tr><td style="padding:6px 0;color:#888;">생성</td><td>{{ draft.created_at[:16] if draft.get('created_at') else '-' }}</td></tr>
+          <tr><td style="padding:6px 0;color:#888;">방식</td><td>{{ '🤖 자동' if draft.get('auto') else '✍️ 수동' }}</td></tr>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
 const draftId = "{{ draft.id }}";
-
-function toggleImage(el) {
-  el.classList.toggle('selected');
-}
+let saveTimer;
 
 async function refreshPreview() {
   const title = document.getElementById('titleEdit').value;
   const markdown = document.getElementById('markdownEdit').value;
-
   const res = await fetch(`/api/update-draft/${draftId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, markdown })
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({title, markdown})
   });
   const data = await res.json();
   if (data.html) {
     document.getElementById('previewFrame').innerHTML = data.html;
-    document.getElementById('headerTitle').textContent = title.slice(0, 40) + '...';
+    document.getElementById('headerTitle').textContent = title;
+    showSaved();
   }
 }
 
-async function publish() {
-  const btn = document.getElementById('publishBtn');
-  const resultMsg = document.getElementById('resultMsg');
-  const accessToken = document.getElementById('accessToken').value.trim();
+function showSaved() {
+  const b = document.getElementById('savedBadge');
+  b.style.display = 'inline';
+  setTimeout(() => b.style.display = 'none', 2000);
+}
 
-  // 게시 전 제목/본문 자동 저장
+function toggleImage(el) { el.classList.toggle('selected'); }
+
+async function copyHtml() {
+  // 저장 후 최신 HTML 가져오기
   await refreshPreview();
-
-  btn.disabled = true;
-  btn.textContent = '⏳ 게시 중...';
-  resultMsg.style.display = 'none';
-
+  const res = await fetch(`/api/draft/${draftId}`);
+  const draft = await res.json();
   try {
-    const res = await fetch(`/api/publish/${draftId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_token: accessToken })
-    });
-    const data = await res.json();
-
-    resultMsg.style.display = 'block';
-    if (data.success) {
-      resultMsg.className = 'result-msg success';
-      resultMsg.textContent = '✅ 네이버 블로그에 성공적으로 게시되었습니다!';
-    } else {
-      resultMsg.className = 'result-msg error';
-      resultMsg.textContent = '❌ 게시 실패: ' + (data.error || JSON.stringify(data));
-      btn.disabled = false;
-      btn.textContent = '🚀 네이버 블로그에 게시하기';
-    }
-  } catch (err) {
-    resultMsg.style.display = 'block';
-    resultMsg.className = 'result-msg error';
-    resultMsg.textContent = '❌ 오류: ' + err.message;
-    btn.disabled = false;
-    btn.textContent = '🚀 네이버 블로그에 게시하기';
+    await navigator.clipboard.writeText(draft.html);
+    showToast('✅ HTML이 클립보드에 복사됐습니다! 네이버 블로그에 붙여넣기하세요.');
+  } catch {
+    // 폴백
+    const ta = document.createElement('textarea');
+    ta.value = draft.html;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ HTML 복사 완료!');
   }
 }
 
-// 자동 저장 (5초 디바운스)
-let saveTimer;
-['titleEdit', 'markdownEdit'].forEach(id => {
+// 5초 디바운스 자동 저장
+['titleEdit','markdownEdit'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(refreshPreview, 5000);
   });
 });
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
 </script>
 </body>
 </html>

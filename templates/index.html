@@ -5,221 +5,435 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>네이버 블로그 자동 작성기</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
 
-  .header {
-    background: #03C75A;
-    padding: 20px 0;
-    text-align: center;
-    color: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  }
-  .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
-  .header p { font-size: 14px; opacity: 0.9; margin-top: 4px; }
+.header {
+  background: #03C75A; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  color: white; height: 58px; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.header h1 { font-size: 18px; font-weight: 700; }
+.header-right { display: flex; gap: 10px; }
+.btn-sm {
+  padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none;
+}
+.btn-white { background: white; color: #03C75A; }
+.btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.6); }
+.btn-white:hover { background: #f0faf5; }
 
-  .container { max-width: 760px; margin: 40px auto; padding: 0 20px; }
+.layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1280px; margin: 24px auto; padding: 0 20px; }
 
-  .card {
-    background: white;
-    border-radius: 16px;
-    padding: 36px 40px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  }
+.card { background: white; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+.card-header { padding: 18px 22px 14px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.card-header h2 { font-size: 15px; font-weight: 700; }
+.card-body { padding: 18px 22px; }
 
-  .card h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; color: #111; }
+/* 왼쪽 사이드 */
+.side-section { margin-bottom: 20px; }
 
-  .form-group { margin-bottom: 20px; }
-  .form-group label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #444; }
-  .form-group input, .form-group select, .form-group textarea {
-    width: 100%; padding: 12px 16px;
-    border: 1.5px solid #ddd; border-radius: 10px;
-    font-size: 15px; outline: none;
-    transition: border-color 0.2s;
-  }
-  .form-group input:focus, .form-group select:focus { border-color: #03C75A; }
-  .form-group textarea { height: 80px; resize: vertical; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 9px 13px; border: 1.5px solid #e0e0e0; border-radius: 8px;
+  font-size: 14px; outline: none; background: white; transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #03C75A; }
+.form-group textarea { height: 70px; resize: vertical; }
+.form-group small { display: block; margin-top: 5px; font-size: 12px; color: #999; }
 
-  .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.btn-generate {
+  width: 100%; padding: 12px; background: #03C75A; color: white;
+  border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-generate:hover { background: #02a84a; }
+.btn-generate:disabled { background: #bbb; cursor: not-allowed; }
 
-  .btn-generate {
-    width: 100%; padding: 16px;
-    background: #03C75A; color: white;
-    border: none; border-radius: 12px;
-    font-size: 17px; font-weight: 700;
-    cursor: pointer; transition: background 0.2s;
-    margin-top: 8px;
-  }
-  .btn-generate:hover { background: #02a84a; }
-  .btn-generate:disabled { background: #aaa; cursor: not-allowed; }
+/* 스케줄 */
+.schedule-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 8px; margin-bottom: 14px;
+  font-size: 13px;
+}
+.schedule-status.on { background: #f0faf5; color: #1a7a3a; border: 1px solid #b2e4c9; }
+.schedule-status.off { background: #f5f5f5; color: #888; border: 1px solid #e0e0e0; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.on { background: #03C75A; animation: pulse 1.5s infinite; }
+.dot.off { background: #ccc; }
+@keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.4);} }
 
-  .progress { display: none; margin-top: 24px; }
-  .progress-bar {
-    height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden;
-  }
-  .progress-bar-fill {
-    height: 100%; background: #03C75A; border-radius: 3px;
-    animation: progress 2s ease-in-out infinite;
-  }
-  @keyframes progress {
-    0% { width: 10%; } 50% { width: 75%; } 100% { width: 90%; }
-  }
-  .progress-text { text-align: center; margin-top: 12px; font-size: 14px; color: #666; }
+.day-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.day-pill {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid #ddd; background: white; color: #666;
+  transition: all 0.15s;
+}
+.day-pill.active { background: #03C75A; border-color: #03C75A; color: white; }
 
-  .steps {
-    display: flex; gap: 12px; margin-top: 16px;
-    flex-wrap: wrap;
-  }
-  .step-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 14px; background: #f0faf5; border-radius: 20px;
-    font-size: 13px; color: #555;
-  }
-  .step-item .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: #ccc; flex-shrink: 0;
-  }
-  .step-item.active .dot { background: #03C75A; animation: pulse 1s infinite; }
-  .step-item.done .dot { background: #03C75A; }
-  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+.time-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.time-row input[type=number] { width: 60px; text-align: center; }
+.time-row span { font-size: 14px; color: #666; }
 
-  .error-msg {
-    display: none; margin-top: 16px; padding: 14px 18px;
-    background: #fff0f0; border: 1px solid #ffcccc;
-    border-radius: 10px; color: #cc0000; font-size: 14px;
-  }
+.btn-save-schedule {
+  width: 100%; padding: 10px; background: #f0f2f5; color: #444;
+  border: 1.5px solid #ddd; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; margin-top: 14px; transition: all 0.2s;
+}
+.btn-save-schedule:hover { background: #e8eaed; }
 
-  .tip-box {
-    margin-top: 28px; padding: 16px 20px;
-    background: #f8fbff; border-radius: 12px;
-    border: 1px solid #e0ecff;
-  }
-  .tip-box p { font-size: 13px; color: #555; line-height: 1.7; }
-  .tip-box strong { color: #03C75A; }
+/* 초안 목록 */
+.drafts-grid { display: flex; flex-direction: column; gap: 12px; }
+
+.draft-card {
+  border: 1.5px solid #eee; border-radius: 12px; padding: 16px 18px;
+  cursor: pointer; transition: all 0.15s; position: relative;
+}
+.draft-card:hover { border-color: #03C75A; background: #f9fffc; }
+.draft-card .draft-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+  font-weight: 700; margin-bottom: 6px;
+}
+.draft-card .draft-badge.auto { background: #e8f5e9; color: #2e7d32; }
+.draft-card .draft-badge.manual { background: #e3f2fd; color: #1565c0; }
+.draft-card h3 { font-size: 15px; font-weight: 700; line-height: 1.4; margin-bottom: 4px; color: #111; }
+.draft-card .meta { font-size: 12px; color: #999; }
+.draft-card .del-btn {
+  position: absolute; top: 12px; right: 14px;
+  background: none; border: none; font-size: 16px; cursor: pointer; color: #ccc;
+  display: none;
+}
+.draft-card:hover .del-btn { display: block; }
+.draft-card .del-btn:hover { color: #e53935; }
+
+.empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state p { font-size: 15px; }
+
+/* 로딩 */
+.loading-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45); z-index: 1000;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+}
+.loading-overlay.show { display: flex; }
+.spinner {
+  width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.3);
+  border-top-color: white; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: white; font-size: 16px; font-weight: 600; }
+.loading-sub { color: rgba(255,255,255,0.75); font-size: 13px; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #333; color: white; padding: 12px 22px; border-radius: 30px;
+  font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  z-index: 2000;
+}
+.toast.show { opacity: 1; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>📝 네이버 블로그 자동 작성기</h1>
-  <p>GPT-4 + DALL-E 3으로 블로그 글과 이미지를 자동 생성합니다</p>
+  <div class="header-right">
+    <button class="btn-sm btn-outline" onclick="generateNow()">⚡ 지금 바로 생성</button>
+  </div>
 </div>
 
-<div class="container">
-  <div class="card">
-    <h2>블로그 글 생성하기</h2>
-
-    <form id="generateForm">
-      <div class="form-group">
-        <label>📌 블로그 주제 <span style="color:#cc0000">*</span></label>
-        <input type="text" name="topic" id="topic"
-          placeholder="예: 제주도 여행 맛집 추천, 홈카페 레시피, 다이어트 식단 관리..."
-          required />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>✍️ 글 스타일</label>
-          <select name="style" id="style">
-            <option value="정보성">정보성</option>
-            <option value="리뷰">리뷰</option>
-            <option value="일상">일상</option>
-            <option value="레시피">레시피</option>
-            <option value="여행기">여행기</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>🎨 문체 톤</label>
-          <select name="tone" id="tone">
-            <option value="친근한">친근한</option>
-            <option value="전문적인">전문적인</option>
-            <option value="감성적인">감성적인</option>
-            <option value="유머러스한">유머러스한</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>🖼️ 이미지 수</label>
-          <select name="image_count" id="image_count">
-            <option value="1">1장</option>
-            <option value="2" selected>2장</option>
-            <option value="3">3장</option>
-          </select>
-        </div>
-      </div>
-
-      <button type="submit" class="btn-generate" id="generateBtn">
-        ✨ 블로그 글 자동 생성
-      </button>
-    </form>
-
-    <div class="progress" id="progress">
-      <div class="progress-bar"><div class="progress-bar-fill"></div></div>
-      <div class="progress-text" id="progressText">AI가 글을 작성 중입니다...</div>
-      <div class="steps">
-        <div class="step-item" id="step1"><div class="dot"></div>글 작성 중</div>
-        <div class="step-item" id="step2"><div class="dot"></div>이미지 생성 중</div>
-        <div class="step-item" id="step3"><div class="dot"></div>최종 조합 중</div>
+<div class="layout">
+  <!-- 왼쪽: 수동 생성 + 스케줄 -->
+  <div>
+    <!-- 수동 생성 -->
+    <div class="card side-section">
+      <div class="card-header"><h2>✍️ 직접 주제로 생성</h2></div>
+      <div class="card-body">
+        <form id="generateForm">
+          <div class="form-group">
+            <label>블로그 주제</label>
+            <input type="text" name="topic" placeholder="예: 제주도 봄 여행 카페 추천" required />
+          </div>
+          <div class="form-group">
+            <label>스타일</label>
+            <select name="style">
+              <option value="정보성">정보성</option>
+              <option value="리뷰">리뷰</option>
+              <option value="일상">일상</option>
+              <option value="레시피">레시피</option>
+              <option value="여행기">여행기</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>문체 톤</label>
+            <select name="tone">
+              <option value="친근한">친근한</option>
+              <option value="전문적인">전문적인</option>
+              <option value="감성적인">감성적인</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>이미지 수</label>
+            <select name="image_count">
+              <option value="1">1장</option>
+              <option value="2" selected>2장</option>
+              <option value="3">3장</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-generate">✨ 생성하기</button>
+        </form>
       </div>
     </div>
 
-    <div class="error-msg" id="errorMsg"></div>
+    <!-- 스케줄 설정 -->
+    <div class="card">
+      <div class="card-header">
+        <h2>⏰ 자동 스케줄</h2>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="scheduleEnabled" style="width:auto;" onchange="toggleSchedule(this)">
+          <span id="scheduleLabel">꺼짐</span>
+        </label>
+      </div>
+      <div class="card-body">
+        <div class="schedule-status off" id="scheduleStatus">
+          <div class="dot off" id="scheduleDot"></div>
+          <span id="scheduleStatusText">자동 생성 꺼짐</span>
+        </div>
 
-    <div class="tip-box">
-      <p>💡 <strong>팁:</strong> 구체적인 주제를 입력할수록 더 좋은 결과물이 나옵니다.<br>
-      예) "제주도" → "제주도 서귀포 카페거리 감성 맛집 5곳"</p>
+        <div class="form-group">
+          <label>카테고리 (GPT가 주제 자동 선정)</label>
+          <select id="cfgCategory">
+            <option value="라이프스타일">라이프스타일</option>
+            <option value="음식/맛집">음식/맛집</option>
+            <option value="여행">여행</option>
+            <option value="뷰티/패션">뷰티/패션</option>
+            <option value="건강/운동">건강/운동</option>
+            <option value="육아">육아</option>
+            <option value="재테크">재테크</option>
+            <option value="IT/테크">IT/테크</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>글 스타일</label>
+          <select id="cfgStyle">
+            <option value="정보성">정보성</option>
+            <option value="리뷰">리뷰</option>
+            <option value="일상">일상</option>
+            <option value="여행기">여행기</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>요일 선택</label>
+          <div class="day-pills" id="dayPills">
+            <div class="day-pill" data-day="mon">월</div>
+            <div class="day-pill" data-day="tue">화</div>
+            <div class="day-pill" data-day="wed">수</div>
+            <div class="day-pill" data-day="thu">목</div>
+            <div class="day-pill" data-day="fri">금</div>
+            <div class="day-pill" data-day="sat">토</div>
+            <div class="day-pill" data-day="sun">일</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>생성 시각 (한국시간)</label>
+          <div class="time-row">
+            <input type="number" id="cfgHour" min="0" max="23" value="9" />
+            <span>시</span>
+            <input type="number" id="cfgMinute" min="0" max="59" value="0" step="5" />
+            <span>분</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>주제 키워드 목록 (선택 — 비우면 GPT가 자동 선정)</label>
+          <textarea id="cfgKeywords" placeholder="한 줄에 하나씩 입력&#10;제주도 봄 여행 카페&#10;홈카페 레시피"></textarea>
+          <small>입력하면 순서대로 사용, 모두 사용 시 처음으로 돌아감</small>
+        </div>
+
+        <button class="btn-save-schedule" onclick="saveSchedule()">💾 스케줄 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 오른쪽: 초안 목록 -->
+  <div class="card">
+    <div class="card-header">
+      <h2>📋 생성된 초안 목록</h2>
+      <span style="font-size:13px;color:#999;" id="draftCount">{{ drafts|length }}개</span>
+    </div>
+    <div class="card-body">
+      <div class="drafts-grid" id="draftsGrid">
+        {% if drafts %}
+          {% for d in drafts %}
+          <div class="draft-card" onclick="location.href='/review/{{ d.id }}'">
+            <button class="del-btn" onclick="event.stopPropagation();deleteDraft('{{ d.id }}',this)">🗑</button>
+            <div class="draft-badge {{ 'auto' if d.get('auto') else 'manual' }}">
+              {{ '🤖 자동' if d.get('auto') else '✍️ 수동' }}
+            </div>
+            <h3>{{ d.title }}</h3>
+            <div class="meta">
+              📌 {{ d.topic }} &nbsp;·&nbsp;
+              {{ d.created_at[:10] if d.get('created_at') else '' }}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <div class="icon">📝</div>
+            <p>아직 생성된 초안이 없습니다.<br>왼쪽에서 주제를 입력하거나 스케줄을 설정하세요.</p>
+          </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
 
+<!-- 로딩 오버레이 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">블로그 글 생성 중...</div>
+  <div class="loading-sub" id="loadingSub">GPT-4가 글을 작성하고 DALL-E 3가 이미지를 만들고 있습니다</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
-const form = document.getElementById('generateForm');
-const btn = document.getElementById('generateBtn');
-const progress = document.getElementById('progress');
-const progressText = document.getElementById('progressText');
-const errorMsg = document.getElementById('errorMsg');
+// 스케줄 설정 로드
+const cfg = {{ config | tojson }};
+document.getElementById('scheduleEnabled').checked = cfg.enabled;
+document.getElementById('cfgCategory').value = cfg.category || '라이프스타일';
+document.getElementById('cfgStyle').value = cfg.style || '정보성';
+document.getElementById('cfgHour').value = cfg.hour ?? 9;
+document.getElementById('cfgMinute').value = cfg.minute ?? 0;
+document.getElementById('cfgKeywords').value = (cfg.keywords || []).join('\n');
 
-form.addEventListener('submit', async (e) => {
+// 요일 표시
+const activeDays = new Set(cfg.days || ['mon','wed','fri']);
+document.querySelectorAll('.day-pill').forEach(p => {
+  if (activeDays.has(p.dataset.day)) p.classList.add('active');
+  p.addEventListener('click', () => p.classList.toggle('active'));
+});
+updateScheduleStatus(cfg.enabled);
+
+function toggleSchedule(el) { updateScheduleStatus(el.checked); }
+
+function updateScheduleStatus(on) {
+  const status = document.getElementById('scheduleStatus');
+  const dot = document.getElementById('scheduleDot');
+  const text = document.getElementById('scheduleStatusText');
+  const label = document.getElementById('scheduleLabel');
+  if (on) {
+    status.className = 'schedule-status on';
+    dot.className = 'dot on';
+    const days = [...document.querySelectorAll('.day-pill.active')].map(p => p.textContent).join(', ');
+    const h = document.getElementById('cfgHour').value.padStart(2,'0');
+    const m = document.getElementById('cfgMinute').value.padStart(2,'0');
+    text.textContent = `${days} ${h}:${m}에 자동 생성`;
+    label.textContent = '켜짐';
+  } else {
+    status.className = 'schedule-status off';
+    dot.className = 'dot off';
+    text.textContent = '자동 생성 꺼짐';
+    label.textContent = '꺼짐';
+  }
+}
+
+async function saveSchedule() {
+  const days = [...document.querySelectorAll('.day-pill.active')].map(p => p.dataset.day);
+  const keywords = document.getElementById('cfgKeywords').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const payload = {
+    enabled: document.getElementById('scheduleEnabled').checked,
+    category: document.getElementById('cfgCategory').value,
+    style: document.getElementById('cfgStyle').value,
+    hour: parseInt(document.getElementById('cfgHour').value),
+    minute: parseInt(document.getElementById('cfgMinute').value),
+    days,
+    keywords,
+    image_count: 2,
+    tone: '친근한',
+  };
+  const res = await fetch('/api/schedule', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) {
+    updateScheduleStatus(payload.enabled);
+    showToast('✅ 스케줄 저장됨');
+  }
+}
+
+// 수동 생성 폼
+document.getElementById('generateForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  errorMsg.style.display = 'none';
-  btn.disabled = true;
-  btn.textContent = '⏳ 생성 중...';
-  progress.style.display = 'block';
-
-  setStep(1);
-  progressText.textContent = 'GPT-4가 블로그 글을 작성 중입니다...';
-
-  const fd = new FormData(form);
-
-  // 단계 시뮬레이션
-  setTimeout(() => { setStep(2); progressText.textContent = 'DALL-E 3가 이미지를 생성 중입니다...'; }, 3000);
-  setTimeout(() => { setStep(3); progressText.textContent = '글과 이미지를 조합하는 중입니다...'; }, 12000);
-
+  showLoading('블로그 글 생성 중...', 'GPT-4가 글을 작성하고 DALL-E 3가 이미지를 만들고 있습니다');
+  const fd = new FormData(e.target);
   try {
-    const res = await fetch('/api/generate', { method: 'POST', body: fd });
+    const res = await fetch('/api/generate', {method:'POST', body:fd});
     const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.detail || '생성 실패');
-    }
-
-    progress.style.display = 'none';
-    window.location.href = `/review/${data.draft_id}`;
+    if (!res.ok) throw new Error(data.detail);
+    hideLoading();
+    location.href = `/review/${data.draft_id}`;
   } catch (err) {
-    progress.style.display = 'none';
-    btn.disabled = false;
-    btn.textContent = '✨ 블로그 글 자동 생성';
-    errorMsg.style.display = 'block';
-    errorMsg.textContent = '오류: ' + err.message;
+    hideLoading();
+    showToast('❌ 오류: ' + err.message, true);
   }
 });
 
-function setStep(n) {
-  for (let i = 1; i <= 3; i++) {
-    const el = document.getElementById('step' + i);
-    el.classList.remove('active', 'done');
-    if (i < n) el.classList.add('done');
-    if (i === n) el.classList.add('active');
+async function generateNow() {
+  showLoading('자동 주제 선정 후 생성 중...', '카테고리 설정 기반으로 GPT가 오늘의 주제를 선정합니다');
+  try {
+    const res = await fetch('/api/generate-now', {method:'POST'});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail);
+    hideLoading();
+    location.href = `/review/${data.draft_id}`;
+  } catch (err) {
+    hideLoading();
+    showToast('❌ 오류: ' + err.message, true);
   }
+}
+
+async function deleteDraft(id, btn) {
+  if (!confirm('이 초안을 삭제하시겠습니까?')) return;
+  const res = await fetch(`/api/draft/${id}`, {method:'DELETE'});
+  if (res.ok) {
+    const card = btn.closest('.draft-card');
+    card.remove();
+    const grid = document.getElementById('draftsGrid');
+    const count = grid.querySelectorAll('.draft-card').length;
+    document.getElementById('draftCount').textContent = count + '개';
+    if (count === 0) {
+      grid.innerHTML = `<div class="empty-state"><div class="icon">📝</div><p>아직 생성된 초안이 없습니다.</p></div>`;
+    }
+  }
+}
+
+function showLoading(text, sub) {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingSub').textContent = sub;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('show');
+}
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? '#c62828' : '#333';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 </script>
 </body>
